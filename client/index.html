@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>Bloxel</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="crosshair">+</div>
+    <div id="hotbar-container">
+      <div id="hotbar"></div>
+    </div>
+    <div id="health-bar"></div>
+    <div id="hunger-bar"></div>
+    <div id="coordinates"></div>
+  </div>
+
+  <!-- Chat -->
+  <div id="chat-container">
+    <div id="chat-messages"></div>
+    <div id="chat-input-row" style="display:none">
+      <input id="chat-input" type="text" maxlength="256" placeholder="Press T to chat..."/>
+    </div>
+  </div>
+
+  <!-- Main Menu -->
+  <div id="main-menu" class="menu-overlay">
+    <div class="menu-box">
+      <h1>⛏ Bloxel</h1>
+      <div class="menu-field">
+        <label>Username</label>
+        <input id="username-input" type="text" maxlength="32" value="Player" placeholder="Your name"/>
+      </div>
+      <button id="btn-play" class="menu-btn">Play</button>
+    </div>
+  </div>
+
+  <!-- Pause Menu -->
+  <div id="pause-menu" class="menu-overlay" style="display:none">
+    <div class="menu-box">
+      <h2>Paused</h2>
+      <button id="btn-resume" class="menu-btn">Resume</button>
+      <button id="btn-quit" class="menu-btn">Quit to Menu</button>
+    </div>
+  </div>
+
+  <!-- Death Screen -->
+  <div id="death-screen" class="menu-overlay" style="display:none">
+    <div class="menu-box">
+      <h2 style="color:#e55;">You Died!</h2>
+      <p id="death-msg">Killed by the world</p>
+      <button id="btn-respawn" class="menu-btn">Respawn</button>
+    </div>
+  </div>
+
+  <!-- Inventory -->
+  <div id="inventory-screen" style="display:none">
+    <div id="inventory-panel">
+      <h3>Inventory <span style="font-size:0.7em;color:#aaa">(E to close)</span></h3>
+      <div id="inventory-grid"></div>
+      <div id="crafting-area">
+        <h4>Crafting</h4>
+        <div id="crafting-grid-2x2"></div>
+        <div id="crafting-arrow">→</div>
+        <div id="crafting-output"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Crafting Table -->
+  <div id="crafting-table-screen" style="display:none">
+    <div id="crafting-table-panel">
+      <h3>Crafting Table <span style="font-size:0.7em;color:#aaa">(E to close)</span></h3>
+      <div id="crafting-grid-3x3"></div>
+      <div id="crafting-table-arrow">→</div>
+      <div id="crafting-table-output"></div>
+    </div>
+  </div>
+
+  <!-- Cheat Panel (F7) -->
+  <div id="cheat-panel" style="display:none">
+    <div id="cheat-content">
+      <h3>Cheat Panel <span style="font-size:0.7em;color:#aaa">(F7 to close)</span></h3>
+      <div id="cheat-blocks"></div>
+      <div style="margin-top:10px">
+        <button id="cheat-heal" class="cheat-btn">Full Heal</button>
+        <button id="cheat-feed" class="cheat-btn">Full Feed</button>
+        <button id="cheat-creative" class="cheat-btn">Give All Blocks</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Controls -->
+  <div id="mobile-controls" style="display:none">
+    <div id="joystick-zone">
+      <div id="joystick-base"><div id="joystick-knob"></div></div>
+    </div>
+    <div id="mobile-action-buttons">
+      <button id="btn-jump" class="mobile-btn">↑</button>
+      <button id="btn-break" class="mobile-btn">⛏</button>
+      <button id="btn-place" class="mobile-btn">🧱</button>
+      <button id="btn-inv" class="mobile-btn">🎒</button>
+    </div>
+  </div>
+
+  <!-- Day/Night indicator -->
+  <div id="daytime-indicator"></div>
+
+  <!-- Three.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Game scripts -->
+  <script src="js/utils.js"></script>
+  <script src="js/blocks.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/inventory.js"></script>
+  <script src="js/crafting.js"></script>
+  <script src="js/network.js"></script>
+  <script src="js/mobile.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/mobs.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
