@@ -81,6 +81,39 @@ const MathUtils = {
   lerp(a, b, t) { return a + (b-a)*t; },
   sign(v) { return v > 0 ? 1 : v < 0 ? -1 : 0; },
 
+  // Returns nearest hit distance for a ray/AABB test, or null on no-hit.
+  rayAabbIntersect(origin, dir, min, max, maxDist = Infinity) {
+    const eps = 1e-8;
+    let tmin = 0;
+    let tmax = maxDist;
+
+    for (const axis of ['x', 'y', 'z']) {
+      const o = origin[axis];
+      const d = dir[axis];
+      const mn = min[axis];
+      const mx = max[axis];
+
+      if (Math.abs(d) < eps) {
+        if (o < mn || o > mx) return null;
+        continue;
+      }
+
+      let t1 = (mn - o) / d;
+      let t2 = (mx - o) / d;
+      if (t1 > t2) {
+        const tmp = t1;
+        t1 = t2;
+        t2 = tmp;
+      }
+
+      tmin = Math.max(tmin, t1);
+      tmax = Math.min(tmax, t2);
+      if (tmax < tmin) return null;
+    }
+
+    return (tmin >= 0 && tmin <= maxDist) ? tmin : null;
+  },
+
   /** Convert world coords to chunk coords */
   worldToChunk(x, z, size=16) {
     return {

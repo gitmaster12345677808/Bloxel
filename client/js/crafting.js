@@ -1,218 +1,169 @@
-// ─── Crafting system ────────────────────────────────────────────────────
-// Recipes: pattern (null = empty, number = block/item id) -> output
-const RECIPES = [
-  // Planks from wood
-  { pattern: [[BLOCKS.WOOD]], output: { id: BLOCKS.PLANKS, count: 4, type: 'block' } },
-  // Sticks from planks
-  { pattern: [[BLOCKS.PLANKS],[BLOCKS.PLANKS]], output: { id: ITEM_TYPES.STICK.id, count: 4, type: 'item', itemDef: ITEM_TYPES.STICK } },
-  // Crafting table
-  { pattern: [[BLOCKS.PLANKS, BLOCKS.PLANKS],[BLOCKS.PLANKS, BLOCKS.PLANKS]], output: { id: BLOCKS.CRAFTING_TABLE, count: 1, type: 'block' } },
-  // Wood pickaxe: PPP / _S_ / _S_
-  { pattern: [[BLOCKS.PLANKS, BLOCKS.PLANKS, BLOCKS.PLANKS],[null, ITEM_TYPES.STICK.id, null],[null, ITEM_TYPES.STICK.id, null]], output: { id: ITEM_TYPES.WOOD_PICK.id, count:1, type:'item', itemDef: ITEM_TYPES.WOOD_PICK } },
-  // Stone pickaxe
-  { pattern: [[BLOCKS.COBBLESTONE, BLOCKS.COBBLESTONE, BLOCKS.COBBLESTONE],[null, ITEM_TYPES.STICK.id, null],[null, ITEM_TYPES.STICK.id, null]], output: { id: ITEM_TYPES.STONE_PICK.id, count:1, type:'item', itemDef: ITEM_TYPES.STONE_PICK } },
-  // Iron pickaxe
-  { pattern: [[ITEM_TYPES.IRON_INGOT.id, ITEM_TYPES.IRON_INGOT.id, ITEM_TYPES.IRON_INGOT.id],[null, ITEM_TYPES.STICK.id, null],[null, ITEM_TYPES.STICK.id, null]], output: { id: ITEM_TYPES.IRON_PICK.id, count:1, type:'item', itemDef: ITEM_TYPES.IRON_PICK } },
-  // Wood sword
-  { pattern: [[BLOCKS.PLANKS],[BLOCKS.PLANKS],[ITEM_TYPES.STICK.id]], output: { id: ITEM_TYPES.WOOD_SWORD.id, count:1, type:'item', itemDef: ITEM_TYPES.WOOD_SWORD } },
-  // Stone sword
-  { pattern: [[BLOCKS.COBBLESTONE],[BLOCKS.COBBLESTONE],[ITEM_TYPES.STICK.id]], output: { id: ITEM_TYPES.STONE_SWORD.id, count:1, type:'item', itemDef: ITEM_TYPES.STONE_SWORD } },
-  // Iron sword
-  { pattern: [[ITEM_TYPES.IRON_INGOT.id],[ITEM_TYPES.IRON_INGOT.id],[ITEM_TYPES.STICK.id]], output: { id: ITEM_TYPES.IRON_SWORD.id, count:1, type:'item', itemDef: ITEM_TYPES.IRON_SWORD } },
-  // Wood axe
-  { pattern: [[BLOCKS.PLANKS, BLOCKS.PLANKS],[BLOCKS.PLANKS, ITEM_TYPES.STICK.id],[null, ITEM_TYPES.STICK.id]], output: { id: ITEM_TYPES.WOOD_AXE.id, count:1, type:'item', itemDef: ITEM_TYPES.WOOD_AXE } },
-  // Wood shovel
-  { pattern: [[BLOCKS.PLANKS],[ITEM_TYPES.STICK.id],[ITEM_TYPES.STICK.id]], output: { id: ITEM_TYPES.WOOD_SHOVEL.id, count:1, type:'item', itemDef: ITEM_TYPES.WOOD_SHOVEL } },
-  // Cobblestone
-  { pattern: [[BLOCKS.STONE]], output: { id: BLOCKS.COBBLESTONE, count: 1, type:'block' } },
-  // Glass (from sand via "smelting" - simplified to crafting)
-  { pattern: [[BLOCKS.SAND, BLOCKS.SAND, BLOCKS.SAND],[BLOCKS.SAND, null, BLOCKS.SAND],[BLOCKS.SAND, BLOCKS.SAND, BLOCKS.SAND]], output: { id: BLOCKS.GLASS, count:4, type:'block' } },
-  // Brick block
-  { pattern: [[ITEM_TYPES.COAL.id, ITEM_TYPES.COAL.id],[ITEM_TYPES.COAL.id, ITEM_TYPES.COAL.id]], output: { id: BLOCKS.BRICK, count:1, type:'block' } },
-];
+// Crafting system using recipe buttons (classic mobile style).
+// Recipes are now defined in crafts.js for easy management.
 
-function matchRecipe(grid) {
-  // Normalize: remove empty rows/cols
-  const rows = grid.length;
-  const cols = grid[0].length;
-
-  // Find bounding box
-  let minR=rows, maxR=-1, minC=cols, maxC=-1;
-  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
-    if (grid[r][c]) { minR=Math.min(minR,r); maxR=Math.max(maxR,r); minC=Math.min(minC,c); maxC=Math.max(maxC,c); }
-  }
-  if (maxR < 0) return null; // empty
-
-  // Extract sub-grid
-  const sub = [];
-  for (let r=minR;r<=maxR;r++) {
-    const row = [];
-    for (let c=minC;c<=maxC;c++) row.push(grid[r][c] || null);
-    sub.push(row);
-  }
-
-  for (const recipe of RECIPES) {
-    if (patternsMatch(sub, recipe.pattern)) return recipe.output;
-  }
-  return null;
+function recipeSize(recipe) {
+  const height = recipe.pattern.length;
+  let width = 0;
+  for (const row of recipe.pattern) width = Math.max(width, row.length);
+  return { width, height };
 }
 
-function patternsMatch(grid, pattern) {
-  if (grid.length !== pattern.length) return false;
-  for (let r=0;r<grid.length;r++) {
-    if (grid[r].length !== pattern[r].length) return false;
-    for (let c=0;c<grid[r].length;c++) {
-      const g = grid[r][c] || null;
-      const p = pattern[r][c] || null;
-      if (g !== p) return false;
+function recipeNeeds(recipe) {
+  const needs = new Map();
+  for (const row of recipe.pattern) {
+    for (const id of row) {
+      if (!id) continue;
+      needs.set(id, (needs.get(id) || 0) + 1);
     }
   }
-  return true;
+  return needs;
 }
 
 class CraftingUI {
   constructor(inventory) {
     this.inventory = inventory;
-    this.grid2 = Array(2).fill(null).map(()=>Array(2).fill(null));
-    this.grid3 = Array(3).fill(null).map(()=>Array(3).fill(null));
-    this._build2x2();
-    this._build3x3();
+    this.recipes2 = CRAFTING_RECIPES.filter((r) => {
+      const sz = recipeSize(r);
+      return sz.width <= 2 && sz.height <= 2;
+    });
+    this.recipes3 = CRAFTING_RECIPES.slice();
+
+    this._buildRecipeList('crafting-list-2x2', this.recipes2);
+    this._buildRecipeList('crafting-list-3x3', this.recipes3);
+
+    const originalRefresh = this.inventory.refresh.bind(this.inventory);
+    this.inventory.refresh = () => {
+      originalRefresh();
+      this.refreshLists();
+    };
+
+    this.refreshLists();
   }
 
-  _build2x2() {
-    const el = document.getElementById('crafting-grid-2x2');
-    if (!el) return;
-    el.innerHTML = '';
-    for (let r=0;r<2;r++) for (let c=0;c<2;c++) {
+  _getLabel(id) {
+    const itemDef = Object.values(ITEM_TYPES).find((it) => it.id === id);
+    if (itemDef) return itemDef.name;
+    return BLOCK_NAMES[id] || `ID ${id}`;
+  }
+
+  _makeIconForOutput(output) {
+    if (output.type === 'block' && blockTextures[output.id]) {
+      const tex = blockTextures[output.id];
+      const source = tex.image || tex.source?.data;
+      if (source) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 32;
+        canvas.height = 32;
+        canvas.className = 'craft-btn-icon';
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(source, 0, 0, 16, 16, 0, 0, 32, 32);
+        return canvas;
+      }
+    }
+
+    if (output.type === 'item' && output.itemDef) {
+      const tex = itemTextures[output.id];
+      const source = tex?.image || tex?.source?.data;
+      if (source) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 32;
+        canvas.height = 32;
+        canvas.className = 'craft-btn-icon';
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(source, 0, 0, 16, 16, 0, 0, 32, 32);
+        return canvas;
+      }
+
       const div = document.createElement('div');
-      div.className = 'inv-slot crafting-slot';
-      div.dataset.r = r; div.dataset.c = c;
-      div.addEventListener('click', () => {
-        const item = this.inventory.dragItem;
-        if (item) {
-          this.grid2[r][c] = item.id;
-          this.inventory.dragItem = null;
-          this.inventory._stopDrag();
-        } else {
-          this.grid2[r][c] = null;
-        }
-        this._refreshGridUI(el, this.grid2, 2, 2);
-        this._updateOutput2();
+      div.className = 'item-icon craft-btn-icon';
+      div.style.backgroundColor = output.itemDef.color || '#333';
+      div.textContent = '?';
+      return div;
+    }
+
+    const fallback = document.createElement('div');
+    fallback.className = 'craft-btn-icon';
+    fallback.style.display = 'flex';
+    fallback.style.alignItems = 'center';
+    fallback.style.justifyContent = 'center';
+    fallback.textContent = '?';
+    return fallback;
+  }
+
+  _canCraft(recipe) {
+    const needs = recipeNeeds(recipe);
+    for (const [id, count] of needs.entries()) {
+      if (this.inventory.countItem(id) < count) return false;
+    }
+    return true;
+  }
+
+  _consumeIngredients(recipe) {
+    const needs = recipeNeeds(recipe);
+    for (const [id, count] of needs.entries()) {
+      if (!this.inventory.consumeItem(id, count)) return false;
+    }
+    return true;
+  }
+
+  _buildRecipeList(containerId, recipes) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+
+    for (const recipe of recipes) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'craft-btn';
+
+      const icon = this._makeIconForOutput(recipe.output);
+      const body = document.createElement('div');
+      body.className = 'craft-btn-main';
+
+      const name = document.createElement('div');
+      name.className = 'craft-btn-name';
+      const outName = recipe.output.type === 'item'
+        ? (recipe.output.itemDef?.name || this._getLabel(recipe.output.id))
+        : this._getLabel(recipe.output.id);
+      name.textContent = `${outName} x${recipe.output.count}`;
+
+      const meta = document.createElement('div');
+      meta.className = 'craft-btn-meta';
+      const needs = recipeNeeds(recipe);
+      meta.textContent = Array.from(needs.entries()).map(([id, count]) => `${this._getLabel(id)} x${count}`).join(', ');
+
+      body.appendChild(name);
+      body.appendChild(meta);
+      btn.appendChild(icon);
+      btn.appendChild(body);
+
+      btn.addEventListener('click', () => {
+        if (!this._canCraft(recipe)) return;
+        if (!this._consumeIngredients(recipe)) return;
+        this.inventory.addItem({ ...recipe.output });
       });
-      el.appendChild(div);
-    }
-    const out = document.getElementById('crafting-output');
-    if (out) out.addEventListener('click', () => this._takeOutput(this.grid2, out));
-  }
 
-  _build3x3() {
-    const el = document.getElementById('crafting-grid-3x3');
-    if (!el) return;
-    el.innerHTML = '';
-    for (let r=0;r<3;r++) for (let c=0;c<3;c++) {
-      const div = document.createElement('div');
-      div.className = 'inv-slot crafting-slot';
-      div.dataset.r = r; div.dataset.c = c;
-      div.addEventListener('click', () => {
-        const item = this.inventory.dragItem;
-        if (item) {
-          this.grid3[r][c] = item.id;
-          this.inventory.dragItem = null;
-          this.inventory._stopDrag();
-        } else {
-          this.grid3[r][c] = null;
-        }
-        this._refreshGridUI(el, this.grid3, 3, 3);
-        this._updateOutput3();
-      });
-      el.appendChild(div);
-    }
-    const out = document.getElementById('crafting-table-output');
-    if (out) out.addEventListener('click', () => this._takeOutput(this.grid3, out));
-  }
-
-  _refreshGridUI(container, grid, rows, cols) {
-    const slots = container.querySelectorAll('.crafting-slot');
-    let i=0;
-    for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
-      const el = slots[i++];
-      el.innerHTML = '';
-      const id = grid[r][c];
-      if (id) {
-        // Show block texture or label
-        if (blockTextures[id]) {
-          const img = blockTextures[id].image.cloneNode();
-          img.className = 'slot-icon';
-          el.appendChild(img);
-        } else {
-          el.textContent = id;
-        }
-      }
+      container.appendChild(btn);
     }
   }
 
-  _updateOutput2() {
-    const result = matchRecipe(this.grid2);
-    const out = document.getElementById('crafting-output');
-    if (!out) return;
-    out.innerHTML = '';
-    if (result) {
-      if (result.type === 'block' && blockTextures[result.id]) {
-        const img = blockTextures[result.id].image.cloneNode();
-        img.className = 'slot-icon';
-        out.appendChild(img);
-      }
-      const cnt = document.createElement('span');
-      cnt.className = 'slot-count';
-      cnt.textContent = result.count;
-      out.appendChild(cnt);
-      out.dataset.result = JSON.stringify(result);
-    } else {
-      delete out.dataset.result;
-    }
+  refreshLists() {
+    this._refreshListState('crafting-list-2x2', this.recipes2);
+    this._refreshListState('crafting-list-3x3', this.recipes3);
   }
 
-  _updateOutput3() {
-    const result = matchRecipe(this.grid3);
-    const out = document.getElementById('crafting-table-output');
-    if (!out) return;
-    out.innerHTML = '';
-    if (result) {
-      if (result.type === 'block' && blockTextures[result.id]) {
-        const img = blockTextures[result.id].image.cloneNode();
-        img.className = 'slot-icon';
-        out.appendChild(img);
-      }
-      const cnt = document.createElement('span');
-      cnt.className = 'slot-count';
-      cnt.textContent = result.count;
-      out.appendChild(cnt);
-      out.dataset.result = JSON.stringify(result);
-    } else {
-      delete out.dataset.result;
-    }
+  _refreshListState(containerId, recipes) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const buttons = container.querySelectorAll('.craft-btn');
+    buttons.forEach((btn, i) => {
+      const can = this._canCraft(recipes[i]);
+      btn.disabled = !can;
+    });
   }
 
-  _takeOutput(grid, outEl) {
-    if (!outEl.dataset.result) return;
-    const result = JSON.parse(outEl.dataset.result);
-    // Consume ingredients
-    for (let r=0;r<grid.length;r++) for (let c=0;c<grid[r].length;c++) {
-      if (grid[r][c]) {
-        this.inventory.consumeItem(grid[r][c], 1);
-        grid[r][c] = null;
-      }
-    }
-    // Give output
-    this.inventory.addItem({ ...result });
-    outEl.innerHTML = '';
-    delete outEl.dataset.result;
-    const container = outEl.id === 'crafting-output'
-      ? document.getElementById('crafting-grid-2x2')
-      : document.getElementById('crafting-grid-3x3');
-    if (container) {
-      const rows = grid.length, cols = grid[0].length;
-      this._refreshGridUI(container, grid, rows, cols);
-    }
-  }
+  return2x2ToInventory() {}
+  return3x3ToInventory() {}
 }

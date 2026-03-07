@@ -27,6 +27,10 @@ class Player {
     this._hungerTimer = 0;
     this._regenTimer = 0;
     this._damageTimer = 0;
+    this._lavaTimer = 0;
+    this._starveTimer = 0;
+    this._isMovingHoriz = false;
+    this._fallStartY = null;
 
     // Block interaction
     this.breakProgress = 0;
@@ -80,12 +84,22 @@ class Player {
     this.alive = true;
     this.breakProgress = 0;
     this.breakTarget = null;
+    this._fallStartY = null;
   }
 
   takeDamage(amount, msg) {
     if (!this.alive) return;
+    let finalAmount = amount;
+    if (window.inventory && window.inventory.getArmorReduction) {
+      const reduction = window.inventory.getArmorReduction();
+      finalAmount = Math.max(1, Math.ceil(amount * (1 - reduction)));
+      if (window.inventory.damageEquippedArmor) {
+        window.inventory.damageEquippedArmor(Math.max(1, Math.ceil(amount * 0.5)));
+      }
+    }
     this._damageTimer = 0.5;
-    this.health = Math.max(0, this.health - amount);
+    if (window.ui) window.ui.flashDamage();
+    this.health = Math.max(0, this.health - finalAmount);
     if (this.health <= 0) this.die(msg || 'Unknown cause');
   }
 
@@ -115,7 +129,9 @@ class Player {
   }
 
   _updateMovement(dt) {
-    const speed = (this.hunger <= 0) ? this.speed * 0.5 : this.speed;
+    const inWater = this._isTouchingWater();
+    const baseSpeed = (this.hunger <= 0) ? this.speed * 0.5 : this.speed;
+    const speed = inWater ? baseSpeed * 0.5 : baseSpeed;
     const forward = new THREE.Vector3(-Math.sin(this.ry), 0, -Math.cos(this.ry));
     const right   = new THREE.Vector3( Math.cos(this.ry), 0, -Math.sin(this.ry));
     const move = new THREE.Vector3();
@@ -126,26 +142,41 @@ class Player {
     if (this.keys['KeyA'] || this.joystick.x < -0.2) move.addScaledVector(right, -1);
     if (this.keys['KeyD'] || this.joystick.x > 0.2) move.addScaledVector(right, 1);
 
-    if (move.lengthSq() > 0) {
+    this._isMovingHoriz = move.lengthSq() > 0;
+    if (this._isMovingHoriz) {
       move.normalize().multiplyScalar(speed * dt);
     }
 
-    // Apply gravity
-    this.vy += this.gravity * dt;
-    if (this.vy < -50) this.vy = -50;
+    if (inWater) {
+      // Water movement: reduced gravity and strong drag for swimmable controls.
+      this.vy += this.gravity * 0.12 * dt;
+      this.vy *= 0.88;
+      this.vy = MathUtils.clamp(this.vy, -4.2, 4.2);
 
-    // Jump
-    if ((this.keys['Space'] || this.jumpPressed) && this.onGround) {
-      this.vy = this.jumpVel;
-      this.onGround = false;
-      this.jumpPressed = false;
+      const swimUp = this.keys['Space'] || this.jumpPressed;
+      const swimDown = this.keys['ShiftLeft'] || this.keys['ShiftRight'];
+      if (swimUp) this.vy = 4.2;
+      else if (swimDown) this.vy = -3.8;
+    } else {
+      // Apply gravity
+      this.vy += this.gravity * dt;
+      if (this.vy < -50) this.vy = -50;
+
+      // Jump
+      if ((this.keys['Space'] || this.jumpPressed) && this.onGround) {
+        this.vy = this.jumpVel;
+        this.onGround = false;
+      }
     }
+    this.jumpPressed = false;
 
     // Collide & move
     this._moveAndCollide(move.x, this.vy * dt, move.z);
   }
 
   _moveAndCollide(dx, dy, dz) {
+    const wasOnGround = this.onGround;
+
     // Move in each axis separately
     this.x += dx;
     if (this._checkCollision()) this.x -= dx;
@@ -156,19 +187,31 @@ class Player {
       this.y -= dy;
       if (wasDown) {
         this.onGround = true;
-        // Fall damage
-        if (this.vy < -18) this.takeDamage(Math.floor((-this.vy - 18) * 0.5), 'Fell from a high place');
+        if (!wasOnGround && this._fallStartY !== null && !this._isTouchingWater()) {
+          const fallen = this._fallStartY - this.y;
+          if (fallen > 3.2) {
+            const damage = Math.floor((fallen - 3) * 1.25);
+            if (damage > 0) this.takeDamage(damage, 'Fell from a high place');
+          }
+        }
+        this._fallStartY = null;
       }
       this.vy = 0;
     } else {
-      if (wasDown) this.onGround = false;
+      if (wasDown) {
+        this.onGround = false;
+        if (this._fallStartY === null) this._fallStartY = this.y;
+      }
     }
 
     this.z += dz;
     if (this._checkCollision()) this.z -= dz;
 
     // Void damage
-    if (this.y < 0) this.takeDamage(1, 'Fell into the void');
+    if (this.y < 0) {
+      this._fallStartY = null;
+      this.takeDamage(1, 'Fell into the void');
+    }
   }
 
   _checkCollision() {
@@ -189,19 +232,31 @@ class Player {
   _updateStats(dt) {
     if (this._damageTimer > 0) this._damageTimer -= dt;
 
-    // Hunger drain
-    this._hungerTimer += dt;
-    if (this._hungerTimer > 20) {
+    if (this._isTouchingLava()) {
+      this._lavaTimer += dt;
+      if (this._lavaTimer >= 1.0) {
+        this._lavaTimer = 0;
+        this.takeDamage(4, 'Tried to swim in lava');
+      }
+    } else {
+      this._lavaTimer = 0;
+    }
+
+    // Hunger drain scales with movement and action.
+    const hungerRate = this._isMovingHoriz ? 1.4 : 0.7;
+    this._hungerTimer += dt * hungerRate;
+    if (this._hungerTimer > 28) {
       this._hungerTimer = 0;
       if (this.hunger > 0) this.hunger = Math.max(0, this.hunger - 0.5);
     }
 
-    // Health regen if hunger > 18
-    if (this.hunger >= 18 && this.health < this.maxHealth) {
+    // Health regen if hunger is high enough; regen slowly and consumes hunger.
+    if (this.hunger >= 16 && this.health < this.maxHealth) {
       this._regenTimer += dt;
-      if (this._regenTimer > 1) {
+      if (this._regenTimer > 2.5) {
         this._regenTimer = 0;
         this.health = Math.min(this.maxHealth, this.health + 1);
+        this.hunger = Math.max(0, this.hunger - 0.2);
       }
     } else {
       this._regenTimer = 0;
@@ -209,12 +264,46 @@ class Player {
 
     // Starve damage
     if (this.hunger <= 0 && this.health > 1) {
-      this._hungerTimer -= dt * 2;
-      if (this._hungerTimer < -5) {
-        this._hungerTimer = 0;
+      this._starveTimer += dt;
+      if (this._starveTimer > 4) {
+        this._starveTimer = 0;
         this.takeDamage(1, 'Starved to death');
       }
+    } else {
+      this._starveTimer = 0;
     }
+  }
+
+  _isTouchingLava() {
+    const sampleHeights = [0.1, 0.9, 1.6];
+    const r = this.radius * 0.9;
+    const sampleXZ = [[0,0], [r,0], [-r,0], [0,r], [0,-r]];
+
+    for (const [ox, oz] of sampleXZ) {
+      for (const sy of sampleHeights) {
+        const bx = Math.floor(this.x + ox);
+        const by = Math.floor(this.y + sy);
+        const bz = Math.floor(this.z + oz);
+        if (this.world.getBlock(bx, by, bz) === BLOCKS.LAVA) return true;
+      }
+    }
+    return false;
+  }
+
+  _isTouchingWater() {
+    const sampleHeights = [0.1, 0.9, 1.6];
+    const r = this.radius * 0.9;
+    const sampleXZ = [[0,0], [r,0], [-r,0], [0,r], [0,-r]];
+
+    for (const [ox, oz] of sampleXZ) {
+      for (const sy of sampleHeights) {
+        const bx = Math.floor(this.x + ox);
+        const by = Math.floor(this.y + sy);
+        const bz = Math.floor(this.z + oz);
+        if (this.world.getBlock(bx, by, bz) === BLOCKS.WATER) return true;
+      }
+    }
+    return false;
   }
 
   eat(foodPoints) {
@@ -271,21 +360,83 @@ class Player {
     const props = BLOCK_PROPS[block] || {};
     if (props.hardness === Infinity) { this.breakProgress = 0; return null; }
 
-    // Tool speed
+    // Minecraft-like mining rules: some blocks require tools to break,
+    // and some require a minimum tier to drop themselves.
     let speed = 1;
+    let heldItem = null;
+    let tool = this._getHeldToolInfo(null);
     if (inventory) {
-      const item = inventory.getHotbarItem();
-      if (item && item.speed) speed = item.speed;
+      heldItem = inventory.getHotbarItem();
+      tool = this._getHeldToolInfo(heldItem);
+      if (heldItem && heldItem.speed) speed = heldItem.speed;
     }
+
+    const rule = this._getBlockMiningRule(block);
+    if (!this._canBreakBlockNow(rule, tool)) {
+      this.breakProgress = 0;
+      return null;
+    }
+
+    if (rule.requiredTool && tool.type !== rule.requiredTool) {
+      speed *= 0.35;
+    }
+
+    const dropsWithCurrentTool = this._canHarvestBlockDrop(rule, tool);
 
     this.breakProgress += dt * speed;
     const hardness = props.hardness || 1;
     if (this.breakProgress >= hardness) {
       this.breakProgress = 0;
       this.breakTarget = null;
-      return hit;
+      return { ...hit, dropsWithCurrentTool };
     }
     return null;
+  }
+
+  _getHeldToolInfo(heldItem) {
+    const name = String(heldItem?.itemDef?.name || '').toLowerCase();
+    let type = 'hand';
+    if (name.includes('pickaxe')) type = 'pickaxe';
+    else if (name.includes('shovel')) type = 'shovel';
+    else if (name.includes('axe')) type = 'axe';
+    else if (name.includes('sword')) type = 'sword';
+
+    let tier = 0;
+    if (name.includes('wood')) tier = 1;
+    else if (name.includes('stone')) tier = 2;
+    else if (name.includes('iron')) tier = 3;
+    else if (name.includes('diamond')) tier = 4;
+
+    return { type, tier };
+  }
+
+  _getBlockMiningRule(blockId) {
+    const rules = {
+      [BLOCKS.STONE]: { requiredTool: 'pickaxe', minTier: 1, handBreakable: false },
+      [BLOCKS.COBBLESTONE]: { requiredTool: 'pickaxe', minTier: 1, handBreakable: false },
+      [BLOCKS.COAL_ORE]: { requiredTool: 'pickaxe', minTier: 1, handBreakable: false },
+      [BLOCKS.IRON_ORE]: { requiredTool: 'pickaxe', minTier: 2, handBreakable: false },
+      [BLOCKS.GOLD_ORE]: { requiredTool: 'pickaxe', minTier: 3, handBreakable: false },
+      [BLOCKS.DIAMOND_ORE]: { requiredTool: 'pickaxe', minTier: 3, handBreakable: false },
+      [BLOCKS.OBSIDIAN]: { requiredTool: 'pickaxe', minTier: 4, handBreakable: false },
+      [BLOCKS.FURNACE]: { requiredTool: 'pickaxe', minTier: 1, handBreakable: false },
+      [BLOCKS.BRICK]: { requiredTool: 'pickaxe', minTier: 1, handBreakable: false },
+      [BLOCKS.BEDROCK]: { requiredTool: null, minTier: 999, handBreakable: false },
+    };
+
+    return rules[blockId] || { requiredTool: null, minTier: 0, handBreakable: true };
+  }
+
+  _canBreakBlockNow(rule, tool) {
+    if (!rule.requiredTool) return true;
+    if (tool.type === rule.requiredTool) return true;
+    return !!rule.handBreakable;
+  }
+
+  _canHarvestBlockDrop(rule, tool) {
+    if (!rule.requiredTool) return true;
+    if (tool.type !== rule.requiredTool) return false;
+    return tool.tier >= rule.minTier;
   }
 
   updatePlacing(dt, inventory, lastPlaceHit) {

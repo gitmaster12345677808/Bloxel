@@ -15,7 +15,7 @@ A browser-based Minecraft-like multiplayer voxel survival game built with JavaSc
 - **Chat**: Press `T` to open, `Enter` to send
 - **Cheat / Anarchy panel** (`F7`): spawn any block, full heal/feed, give all blocks — no anti-cheat
 - **Mobile touch controls**: virtual joystick, touch camera look, action buttons
-- **Procedural pixel-art textures** generated on canvas (no external images)
+- **Minetest texture support** from `client/textures/minetest/` with procedural fallback when files are missing
 
 ## Requirements
 
@@ -30,6 +30,14 @@ npm start
 ```
 
 Open your browser at **http://localhost:3000**
+
+## Minetest Textures
+
+Bloxel now tries to load block and item textures from:
+
+`client/textures/minetest/`
+
+Drop Minetest PNG textures into that folder (see `client/textures/minetest/README.txt` for expected file names). Missing files automatically fall back to generated textures.
 
 ## Controls
 

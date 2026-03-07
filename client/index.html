@@ -12,31 +12,48 @@
   <!-- HUD -->
   <div id="hud">
     <div id="crosshair">+</div>
+    <div id="fps-counter">FPS: --</div>
+    <div id="item-name-pop"></div>
     <div id="hotbar-container">
       <div id="hotbar"></div>
+      <button id="btn-eat" class="hud-btn" title="Eat selected food (F)">Eat</button>
     </div>
-    <div id="health-bar"></div>
-    <div id="hunger-bar"></div>
+    <div id="health-bar">
+      <span class="health-label">❤</span>
+      <div class="bar-container"><div class="bar-fill" id="health-fill"></div></div>
+    </div>
+    <div id="hunger-bar">
+      <span class="hunger-label">🍗</span>
+      <div class="bar-container"><div class="bar-fill" id="hunger-fill"></div></div>
+    </div>
     <div id="coordinates"></div>
   </div>
+  <div id="damage-flash"></div>
 
   <!-- Chat -->
   <div id="chat-container">
     <div id="chat-messages"></div>
     <div id="chat-input-row" style="display:none">
       <input id="chat-input" type="text" maxlength="256" placeholder="Press T to chat..."/>
+      <button id="chat-send-btn" class="hud-btn" type="button">Send</button>
     </div>
   </div>
 
   <!-- Main Menu -->
   <div id="main-menu" class="menu-overlay">
     <div class="menu-box">
-      <h1>⛏ Bloxel</h1>
+      <h1>Bloxel</h1>
       <div class="menu-field">
         <label>Username</label>
         <input id="username-input" type="text" maxlength="32" value="Player" placeholder="Your name"/>
       </div>
-      <button id="btn-play" class="menu-btn">Play</button>
+      <div class="menu-field">
+        <label>Password</label>
+        <input id="password-input" type="password" maxlength="64" placeholder="Password"/>
+      </div>
+      <button id="btn-login" class="menu-btn">Login & Play</button>
+      <button id="btn-register" class="menu-btn">Register</button>
+      <div id="auth-status" style="font-size:12px;color:#c8d6ff;min-height:14px"></div>
     </div>
   </div>
 
@@ -44,8 +61,26 @@
   <div id="pause-menu" class="menu-overlay" style="display:none">
     <div class="menu-box">
       <h2>Paused</h2>
-      <button id="btn-resume" class="menu-btn">Resume</button>
-      <button id="btn-quit" class="menu-btn">Quit to Menu</button>
+      <div id="pause-main-actions">
+        <button id="btn-resume" class="menu-btn">Resume</button>
+        <button id="btn-settings" class="menu-btn">Settings</button>
+        <button id="btn-disconnect" class="menu-btn">Disconnect</button>
+        <button id="btn-quit" class="menu-btn">Quit to Menu</button>
+      </div>
+      <div id="pause-settings-panel" style="display:none">
+        <div class="settings-row">
+          <label for="render-distance-slider">Render Distance</label>
+          <span id="render-distance-value">4</span>
+        </div>
+        <input id="render-distance-slider" type="range" min="2" max="10" step="1" value="4"/>
+        <div class="settings-row">
+          <label for="hud-scale-slider">HUD Size</label>
+          <span id="hud-scale-value">100%</span>
+        </div>
+        <input id="hud-scale-slider" type="range" min="75" max="150" step="5" value="100"/>
+        <button id="btn-reload-textures" class="menu-btn">Reload Textures</button>
+        <button id="btn-settings-back" class="menu-btn">Back</button>
+      </div>
     </div>
   </div>
 
@@ -61,13 +96,18 @@
   <!-- Inventory -->
   <div id="inventory-screen" style="display:none">
     <div id="inventory-panel">
+      <button id="btn-close-inventory" class="close-btn panel-close" aria-label="Close inventory">✕</button>
       <h3>Inventory <span style="font-size:0.7em;color:#aaa">(E to close)</span></h3>
+      <div id="armor-panel">
+        <div class="armor-slot" data-armor-slot="head" title="Helmet"></div>
+        <div class="armor-slot" data-armor-slot="chest" title="Chestplate"></div>
+        <div class="armor-slot" data-armor-slot="legs" title="Leggings"></div>
+        <div class="armor-slot" data-armor-slot="feet" title="Boots"></div>
+      </div>
       <div id="inventory-grid"></div>
       <div id="crafting-area">
         <h4>Crafting</h4>
-        <div id="crafting-grid-2x2"></div>
-        <div id="crafting-arrow">→</div>
-        <div id="crafting-output"></div>
+        <div id="crafting-list-2x2" class="crafting-list"></div>
       </div>
     </div>
   </div>
@@ -75,10 +115,27 @@
   <!-- Crafting Table -->
   <div id="crafting-table-screen" style="display:none">
     <div id="crafting-table-panel">
+      <button id="btn-close-crafting" class="close-btn panel-close" aria-label="Close crafting">✕</button>
       <h3>Crafting Table <span style="font-size:0.7em;color:#aaa">(E to close)</span></h3>
-      <div id="crafting-grid-3x3"></div>
-      <div id="crafting-table-arrow">→</div>
-      <div id="crafting-table-output"></div>
+      <div id="crafting-list-3x3" class="crafting-list"></div>
+    </div>
+  </div>
+
+  <!-- Furnace -->
+  <div id="furnace-screen" style="display:none">
+    <div id="furnace-panel">
+      <button id="btn-close-furnace" class="close-btn panel-close" aria-label="Close furnace">✕</button>
+      <h3>Furnace <span style="font-size:0.7em;color:#aaa">(E to close)</span></h3>
+      <div id="furnace-list" class="crafting-list"></div>
+    </div>
+  </div>
+
+  <!-- Chest -->
+  <div id="chest-screen" style="display:none">
+    <div id="chest-panel">
+      <button id="btn-close-chest" class="close-btn panel-close" aria-label="Close chest">✕</button>
+      <h3>Chest <span style="font-size:0.7em;color:#aaa">(E to close)</span></h3>
+      <div id="chest-grid" class="crafting-list"></div>
     </div>
   </div>
 
@@ -97,14 +154,24 @@
 
   <!-- Mobile Controls -->
   <div id="mobile-controls" style="display:none">
+    <div id="mobile-top-buttons">
+      <button id="btn-chat-top-mobile" class="mobile-top-btn">Chat</button>
+      <button id="btn-pause-top-mobile" class="mobile-top-btn">Pause</button>
+      <button id="btn-fullscreen-mobile" class="mobile-top-btn">Full</button>
+    </div>
     <div id="joystick-zone">
       <div id="joystick-base"><div id="joystick-knob"></div></div>
     </div>
     <div id="mobile-action-buttons">
-      <button id="btn-jump" class="mobile-btn">↑</button>
-      <button id="btn-break" class="mobile-btn">⛏</button>
-      <button id="btn-place" class="mobile-btn">🧱</button>
-      <button id="btn-inv" class="mobile-btn">🎒</button>
+      <div class="mobile-col">
+        <button id="btn-inv" class="mobile-btn mobile-btn-small">INV</button>
+        <button id="btn-drop-mobile" class="mobile-btn mobile-btn-small">Q</button>
+      </div>
+      <div class="mobile-col">
+        <button id="btn-sneak-mobile" class="mobile-btn mobile-btn-small">S</button>
+        <button id="btn-use-mobile" class="mobile-btn">USE</button>
+        <button id="btn-jump" class="mobile-btn">↑</button>
+      </div>
     </div>
   </div>
 
@@ -117,10 +184,14 @@
   <!-- Game scripts -->
   <script src="js/utils.js"></script>
   <script src="js/blocks.js"></script>
+  <script src="js/crafts.js"></script>
   <script src="js/world.js"></script>
   <script src="js/player.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/crafting.js"></script>
+  <script src="js/furnace.js"></script>
+  <script src="js/chest.js"></script>
+  <script src="js/item_entities.js"></script>
   <script src="js/network.js"></script>
   <script src="js/mobile.js"></script>
   <script src="js/ui.js"></script>
