@@ -137,6 +137,14 @@ class UI {
 
   // ─── HUD ─────────────────────────────────────────────────────────────
   updateHUD(player) {
+    // Hide HUD if game hasn't started
+    const hud = document.getElementById('hud');
+    if (hud) {
+      hud.style.display = window.gameStarted ? 'block' : 'none';
+    }
+
+    if (!window.gameStarted) return;
+
     // Health bar
     const healthBar = document.getElementById('health-bar');
     const healthFill = document.getElementById('health-fill');
@@ -170,6 +178,11 @@ class UI {
   updateDaytime(time) {
     const el = document.getElementById('daytime-indicator');
     if (!el) return;
+    if (!window.gameStarted) {
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = 'block';
     const h = Math.floor(time * 24);
     const m = Math.floor((time * 24 - h) * 60);
     const ampm = h < 12 ? 'AM' : 'PM';
@@ -179,6 +192,7 @@ class UI {
   }
 
   showItemName(name) {
+    if (!window.gameStarted) return;
     if (!name) return;
     const el = document.getElementById('item-name-pop');
     if (!el) return;
@@ -222,6 +236,7 @@ class UI {
   }
 
   openChat() {
+    if (!window.gameStarted) return;
     this.chatOpen = true;
     const row = document.getElementById('chat-input-row');
     const input = document.getElementById('chat-input');
@@ -285,6 +300,7 @@ class UI {
   }
 
   toggleInventory() {
+    if (!window.gameStarted) return;
     if (this.chestOpen) { this.closeChest(); return; }
     if (this.furnaceOpen) { this.closeFurnace(); return; }
     this.inventoryOpen = !this.inventoryOpen;
@@ -300,6 +316,7 @@ class UI {
   }
 
   openCraftingTable() {
+    if (!window.gameStarted) return;
     this.craftingTableOpen = true;
     const el = document.getElementById('crafting-table-screen');
     if (el) el.style.display = 'flex';
@@ -316,6 +333,7 @@ class UI {
   }
 
   openFurnace(pos) {
+    if (!window.gameStarted) return;
     this.furnaceOpen = true;
     const el = document.getElementById('furnace-screen');
     if (el) el.style.display = 'flex';
@@ -342,6 +360,7 @@ class UI {
   }
 
   openChest(pos) {
+    if (!window.gameStarted) return;
     this.chestOpen = true;
     const el = document.getElementById('chest-screen');
     if (el) el.style.display = 'flex';
@@ -414,6 +433,7 @@ class UI {
   }
 
   togglePause() {
+    if (!window.gameStarted) return;
     this.paused = !this.paused;
     const el = document.getElementById('pause-menu');
     if (el) el.style.display = this.paused ? 'flex' : 'none';
@@ -500,6 +520,7 @@ class UI {
   }
 
   toggleCheat() {
+    if (!window.gameStarted) return;
     this.cheatOpen = !this.cheatOpen;
     const el = document.getElementById('cheat-panel');
     if (el) el.style.display = this.cheatOpen ? 'block' : 'none';
@@ -510,6 +531,9 @@ class UI {
   // ─── Key bindings ─────────────────────────────────────────────────────
   _bindKeys() {
     document.addEventListener('keydown', (e) => {
+      // Block all game interactions if not logged in
+      if (!window.gameStarted) return;
+
       if (e.code === 'KeyE' && !this.chatOpen) {
         if (this.chestOpen) this.closeChest();
         else this.toggleInventory();
